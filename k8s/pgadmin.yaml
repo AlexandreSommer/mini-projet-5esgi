@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pgadmin
+  namespace: icgroup
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pgadmin
+  template:
+    metadata:
+      labels:
+        app: pgadmin
+    spec:
+      containers:
+        - name: pgadmin
+          image: dpage/pgadmin4:latest
+          env:
+            - name: PGADMIN_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: pgadmin-secret
+                  key: pgadmin-email
+            - name: PGADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: pgadmin-secret
+                  key: pgadmin-password
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - mountPath: /pgadmin4
+              name: pgadmin-volume
+              subPath: servers.json
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pgadmin
+  namespace: icgroup
+spec:
+  ports:
+    - port: 80
+      targetPort: 80
+  selector:
+    app: pgadmin
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pgadmin-config
+  namespace: icgroup
+data:
+  servers.json: |
+    {
+      "Servers": {
+        "1": {
+          "Name": "Odoo Database",
+          "Group": "Server Group 1",
+          "Port": 5432,
+          "Username": "postgres",
+          "Host": "postgres",
+          "SSLMode": "prefer",
+          "MaintenanceDB": "postgres"
+        }
+      }
+    }
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pgadmin-data
+  namespace: icgroup
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
